@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>AUDIT MUTU INSTALASI GIZI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f9;margin:0}
+header{background:#198754;color:white;padding:15px;text-align:center}
+nav{display:flex;background:#fff;border-bottom:1px solid #ddd}
+nav button{flex:1;padding:12px;border:none;background:#fff;cursor:pointer;font-weight:bold}
+nav button.active{background:#198754;color:white}
+section{padding:15px}
+.card{background:white;padding:15px;border-radius:6px;margin-bottom:15px}
+table{width:100%;border-collapse:collapse}
+table th,table td{border:1px solid #ddd;padding:8px;text-align:center}
+table th{background:#f0f0f0}
+input,textarea,select{width:100%;padding:6px;margin-top:4px}
+button.submit{background:#0d6efd;color:white;border:none;padding:12px;width:100%;font-size:16px;border-radius:6px;cursor:pointer}
+.stat{display:flex;gap:10px}
+.stat div{flex:1;background:white;padding:15px;border-radius:6px;text-align:center}
+.printBtn{background:#0d6efd;color:white;border:none;padding:10px 15px;border-radius:6px;cursor:pointer;margin-bottom:10px}
+.smallBtn{background:#198754;color:white;border:none;padding:6px 10px;border-radius:4px;cursor:pointer}
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>AUDIT MUTU INSTALASI GIZI</h2>
+</header>
+
+<nav>
+<button class="active" onclick="showTab('input',this)">📝 Input Audit</button>
+<button onclick="showTab('dashboard',this)">📊 Dashboard</button>
+</nav>
+
+<!-- ================= INPUT ================= -->
+<section id="input">
+<form id="auditForm">
+
+<div class="card">
+<h3>A. Identitas Audit</h3>
+
+<label>Tanggal</label>
+<input type="date" id="tanggal" required>
+
+<label>Jenis Audit</label>
+<select id="jenis" required>
+<option value="">-- pilih --</option>
+<option>Penyajian Makan</option>
+<option>Pembuatan Makanan Cair</option>
+<option>Pembuatan Diet Khusus</option>
+<option>Pencucian Alat Makan/Masak</option>
+</select>
+
+<label>Petugas</label>
+<input type="text" id="petugas" required>
+
+<label>Unit / Ruangan</label>
+<input type="text" id="unit">
+
+<label>Keterangan</label>
+<textarea id="keterangan"></textarea>
+</div>
+
+<div class="card">
+<h3>B. Penilaian Checklist</h3>
+
+<script>
+function grid(name,items){
+  document.write('<table>');
+  document.write('<tr><th>Kriteria</th><th>Ya</th><th>Tidak</th></tr>');
+  items.forEach(i=>{
+    document.write(`
+    <tr>
+      <td>${i}</td>
+      <td><input type="radio" name="${name+i}" value="Ya" required></td>
+      <td><input type="radio" name="${name+i}" value="Tidak" required></td>
+    </tr>`);
+  });
+  document.write('</table><br>');
+}
+</script>
+
+<script>
+grid("hygiene",[
+"Kebersihan petugas terjaga",
+"Menggunakan APD sesuai",
+"Cuci tangan sebelum bekerja",
+"Peralatan bersih dan steril"
+]);
+</script>
+
+<script>
+grid("proses",[
+"Bahan makanan sesuai standar",
+"Penyimpanan sesuai suhu",
+"Proses sesuai SOP",
+"Tidak ada kontaminasi silang"
+]);
+</script>
+
+</div>
+
+<div class="card">
+<h3>C. Kesimpulan</h3>
+<select id="kesimpulan" required>
+<option value="">-- pilih --</option>
+<option>Baik</option>
+<option>Cukup</option>
+<option>Kurang</option>
+</select>
+</div>
+
+<button class="submit">💾 Simpan Audit</button>
+
+</form>
+</section>
+
+<!-- ================= DASHBOARD ================= -->
+<section id="dashboard" style="display:none">
+
+<div class="stat">
+<div><h3 id="total">0</h3>Total Audit</div>
+<div><h3 id="baik">0</h3>Baik</div>
+<div><h3 id="cukup">0</h3>Cukup</div>
+<div><h3 id="kurang">0</h3>Kurang</div>
+</div>
+
+<button class="printBtn" onclick="window.print()">🖨 Print Semua Data</button>
+
+<div class="card">
+<h3>Data Audit</h3>
+<table id="table"></table>
+</div>
+
+</section>
+
+<script>
+
+// TAB
+function showTab(tab,btn){
+  document.getElementById("input").style.display = tab==="input"?"block":"none";
+  document.getElementById("dashboard").style.display = tab==="dashboard"?"block":"none";
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+// FIREBASE
+firebase.initializeApp({
+  databaseURL:"https://audit-gizi-default-rtdb.asia-southeast1.firebasedatabase.app/"
+});
+const db = firebase.database();
+
+// SAVE
+auditForm.addEventListener("submit",e=>{
+  e.preventDefault();
+
+  db.ref("audit_gizi").push({
+    tanggal:tanggal.value,
+    jenis:jenis.value,
+    petugas:petugas.value,
+    unit:unit.value,
+    keterangan:keterangan.value,
+    kesimpulan:kesimpulan.value,
+    created:Date.now()
+  }).then(()=>{
+    alert("Audit berhasil disimpan");
+    auditForm.reset();
+  });
+});
+
+// DASHBOARD
+db.ref("audit_gizi").on("value",snap=>{
+  let t=0,b=0,c=0,k=0;
+
+  table.innerHTML=`<tr>
+  <th>Tanggal</th>
+  <th>Jenis</th>
+  <th>Petugas</th>
+  <th>Kesimpulan</th>
+  <th>Tools</th>
+  </tr>`;
+
+  snap.forEach(s=>{
+    let d=s.val();
+    t++;
+    if(d.kesimpulan==="Baik") b++;
+    if(d.kesimpulan==="Cukup") c++;
+    if(d.kesimpulan==="Kurang") k++;
+
+    table.innerHTML+=`
+    <tr>
+      <td>${d.tanggal}</td>
+      <td>${d.jenis}</td>
+      <td>${d.petugas}</td>
+      <td>${d.kesimpulan}</td>
+      <td>
+        <button class="smallBtn"
+        onclick="printSingle('${d.tanggal}','${d.jenis}','${d.petugas}','${d.kesimpulan}')">
+        PRINT
+        </button>
+      </td>
+    </tr>`;
+  });
+
+  total.textContent=t;
+  baik.textContent=b;
+  cukup.textContent=c;
+  kurang.textContent=k;
+});
+
+// PRINT SINGLE
+function printSingle(tanggal,jenis,petugas,kesimpulan){
+  let html=`
+  <html><body style="font-family:Arial;padding:30px">
+  <h2 style="text-align:center">BUKTI AUDIT INSTALASI GIZI</h2>
+  <table border="1" width="100%" cellpadding="8" cellspacing="0">
+  <tr><td>Tanggal</td><td>${tanggal}</td></tr>
+  <tr><td>Jenis Audit</td><td>${jenis}</td></tr>
+  <tr><td>Petugas</td><td>${petugas}</td></tr>
+  <tr><td>Kesimpulan</td><td><b>${kesimpulan}</b></td></tr>
+  </table>
+  <br><br>
+  Cirebon, ${new Date().toLocaleDateString()}<br><br><br>
+  ___________________________<br>
+  Petugas Audit
+  </body></html>`;
+
+  let win=window.open("","","width=800,height=600");
+  win.document.write(html);
+  win.document.close();
+  win.print();
+}
+</script>
+
+</body>
+</html>
